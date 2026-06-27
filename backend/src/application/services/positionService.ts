@@ -1,11 +1,7 @@
-import { PrismaClient } from '@prisma/client';
-import { Position } from '../../domain/models/Position';
+import { prisma } from '../../infrastructure/database/client';
 
-const prisma = new PrismaClient();
-
-export const getCandidatesByPosition = async (positionId: number) => {
-  // Validate if the Position exists in the database
-  const positionExists = await Position.findOne(positionId);
+export const getCandidatesByPosition = async (positionId: number, take?: number, skip?: number) => {
+  const positionExists = await prisma.position.findUnique({ where: { id: positionId }, select: { id: true } });
   if (!positionExists) {
     return null;
   }
@@ -15,6 +11,9 @@ export const getCandidatesByPosition = async (positionId: number) => {
     where: {
       positionId: positionId,
     },
+    take: take,
+    skip: skip,
+    orderBy: { id: 'asc' },
     select: {
       candidate: {
         select: {
