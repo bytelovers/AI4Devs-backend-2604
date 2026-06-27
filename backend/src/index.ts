@@ -15,9 +15,10 @@ export default app;
 app.use(helmet());
 app.use(express.json());
 
-// Request logging middleware
+// Request logging middleware — sanitize CR/LF to prevent log forging
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  const sanitize = (s: string) => s.replace(/[\r\n]/g, '');
+  console.log(`${new Date().toISOString()} - ${sanitize(req.method)} ${sanitize(req.path)}`);
   next();
 });
 

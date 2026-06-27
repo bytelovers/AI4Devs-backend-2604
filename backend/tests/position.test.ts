@@ -356,16 +356,11 @@ describe('GET /positions/:id/candidates', () => {
     expect(resLimitOffset.status).toBe(200);
     expect(resLimitOffset.body.length).toBe(2);
 
-    // Make sure they are different candidates (representing correct pagination)
+    // Service uses orderBy: { id: 'asc' }, so responses are deterministically ordered
     const allCandidates = await request(app).get(`/positions/${activePositionId}/candidates`);
-    const sortedAll = allCandidates.body.sort((a: any, b: any) => a.id - b.id);
-    const sortedLimit = resLimit.body.sort((a: any, b: any) => a.id - b.id);
-    const sortedLimitOffset = resLimitOffset.body.sort((a: any, b: any) => a.id - b.id);
+    const allById = allCandidates.body.map((c: any) => c.id);
 
-    // Because prisma query is not ordered by ID by default unless we did so (it returns all match database order),
-    // let's verify limit/offset correspond to the original array slices
-    const originalBodies = allCandidates.body;
-    expect(resLimit.body).toEqual(originalBodies.slice(0, 2));
-    expect(resLimitOffset.body).toEqual(originalBodies.slice(2, 4));
+    expect(resLimit.body.map((c: any) => c.id)).toEqual(allById.slice(0, 2));
+    expect(resLimitOffset.body.map((c: any) => c.id)).toEqual(allById.slice(2, 4));
   });
 });
