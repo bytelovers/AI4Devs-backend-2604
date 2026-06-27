@@ -1,10 +1,9 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { prisma } from '../../infrastructure/database/client';
 import { Education } from './Education';
 import { WorkExperience } from './WorkExperience';
 import { Resume } from './Resume';
 import { Application } from './Application';
-
-const prisma = new PrismaClient();
 
 export class Candidate {
   id?: number;
@@ -25,9 +24,9 @@ export class Candidate {
     this.email = data.email;
     this.phone = data.phone;
     this.address = data.address;
-    this.education = data.education || [];
-    this.workExperience = data.workExperience || [];
-    this.resumes = data.resumes || [];
+    this.education = (data.education || data.educations || []).map((edu: any) => edu instanceof Education ? edu : new Education(edu));
+    this.workExperience = (data.workExperience || data.workExperiences || []).map((work: any) => work instanceof WorkExperience ? work : new WorkExperience(work));
+    this.resumes = (data.resumes || (data.cv ? [new Resume(data.cv)] : [])).map((res: any) => res instanceof Resume ? res : new Resume(res));
     this.applications = data.applications || [];
   }
 

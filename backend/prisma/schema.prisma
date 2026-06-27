@@ -136,6 +136,8 @@ model Application {
   candidate            Candidate      @relation(fields: [candidateId], references: [id])
   interviewStep        InterviewStep  @relation(fields: [currentInterviewStep], references: [id])
   interviews           Interview[]
+
+  @@unique([positionId, candidateId])
 }
 
 model Interview {
