@@ -20,13 +20,11 @@ export class Resume {
       return await this.create();
     }
     throw new Error(
-      'No se permite la actualización de un currículum existente.',
+      'Resume updates are not allowed.',
     );
   }
 
   async create(): Promise<Resume> {
-    console.log(this);
-
     const createdResume = await prisma.resume.create({
       data: {
         candidateId: this.candidateId,

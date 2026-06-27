@@ -1,6 +1,7 @@
 import request from 'supertest';
 import app from '../src/index';
 import { prisma } from '../src/infrastructure/database/client';
+import { InterviewStep } from '@prisma/client';
 
 describe('PUT /candidates/:id/stage', () => {
   let testCompanyId: number;
@@ -201,7 +202,7 @@ describe('PUT /candidates/:id/stage', () => {
   });
 
   it('should return 200 and successfully update the candidate stage', async () => {
-    let step3: any;
+    let step3: InterviewStep | undefined;
     try {
       // To do happy path, let's create a new step3 belonging to Flow 1 and update to it
       step3 = await prisma.interviewStep.create({
@@ -229,18 +230,12 @@ describe('PUT /candidates/:id/stage', () => {
         where: { id: applicationId },
       });
       expect(appRecord?.currentInterviewStep).toBe(step3.id);
-
-      // Reset application back to step1Id to avoid foreign key violation when step3 is deleted
-      await prisma.application.update({
-        where: { id: applicationId },
-        data: { currentInterviewStep: step1Id },
-      });
     } finally {
       if (step3) {
         await prisma.application.update({
           where: { id: applicationId },
           data: { currentInterviewStep: step1Id },
-        }).catch(() => {});
+        }).catch((err) => console.error('Cleanup failed:', err));
         // Clean up step3
         await prisma.interviewStep.delete({ where: { id: step3.id } });
       }

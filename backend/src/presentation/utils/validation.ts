@@ -8,3 +8,14 @@ export function isValidId(val: unknown): boolean {
   }
   return false;
 }
+
+export function parsePositiveIntParam(
+  val: unknown,
+  max = 2147483647
+): { ok: true; value: number } | { ok: false; error: string } {
+  const str = String(val);
+  if (!/^\d+$/.test(str)) return { ok: false, error: 'Invalid parameter format' };
+  const num = parseInt(str, 10);
+  if (num <= 0 || num > max) return { ok: false, error: `Parameter must be between 1 and ${max}` };
+  return { ok: true, value: num };
+}

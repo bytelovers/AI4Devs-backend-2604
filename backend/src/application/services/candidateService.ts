@@ -1,17 +1,18 @@
 import { Candidate } from '../../domain/models/Candidate';
 import { validateCandidateData } from '../validator';
 import { prisma } from '../../infrastructure/database/client';
+import { AppError } from '../errors';
 
 export const addCandidate = async (candidateData: any) => {
   try {
-    validateCandidateData(candidateData); // Validar los datos del candidato
+    validateCandidateData(candidateData);
   } catch (error: any) {
-    throw new Error(error);
+    throw error;
   }
 
-  const candidate = new Candidate(candidateData); // Crear una instancia del modelo Candidate
+  const candidate = new Candidate(candidateData); // Create a Candidate model instance
   try {
-    const savedCandidate = await candidate.save(); // Guardar el candidato en la base de datos
+    const savedCandidate = await candidate.save(); // Save the candidate to the database
     return savedCandidate;
   } catch (error: any) {
     if (error.code === 'P2002') {
@@ -27,11 +28,11 @@ export const findCandidateById = async (
   id: number,
 ): Promise<Candidate | null> => {
   try {
-    const candidate = await Candidate.findOne(id); // Cambio aquí: pasar directamente el id
+    const candidate = await Candidate.findOne(id);
     return candidate;
   } catch (error) {
-    console.error('Error al buscar el candidato:', error);
-    throw new Error('Error al recuperar el candidato');
+    console.error('Error finding candidate:', error);
+    throw new Error('Error retrieving candidate');
   }
 };
 
@@ -40,45 +41,47 @@ export const updateCandidateStage = async (
   positionId: number,
   interviewStepId: number,
 ) => {
-  const application = await prisma.application.findUnique({
-    where: {
-      positionId_candidateId: {
-        positionId,
-        candidateId,
-      },
-    },
-    select: {
-      id: true,
-      position: {
-        select: {
-          interviewFlowId: true,
+  return await prisma.$transaction(async (tx) => {
+    const application = await tx.application.findUnique({
+      where: {
+        positionId_candidateId: {
+          positionId,
+          candidateId,
         },
       },
-    },
-  });
+      select: {
+        id: true,
+        position: {
+          select: {
+            interviewFlowId: true,
+          },
+        },
+      },
+    });
 
-  if (!application) {
-    const candidateExists = await prisma.candidate.findUnique({ where: { id: candidateId }, select: { id: true } });
-    if (!candidateExists) throw new Error('Candidate not found');
-    const positionExists = await prisma.position.findUnique({ where: { id: positionId }, select: { id: true } });
-    if (!positionExists) throw new Error('Position not found');
-    throw new Error('Application not found');
-  }
+    if (!application) {
+      const candidateExists = await tx.candidate.findUnique({ where: { id: candidateId }, select: { id: true } });
+      if (!candidateExists) throw new AppError('Candidate not found', 'NOT_FOUND');
+      const positionExists = await tx.position.findUnique({ where: { id: positionId }, select: { id: true } });
+      if (!positionExists) throw new AppError('Position not found', 'NOT_FOUND');
+      throw new AppError('Application not found', 'NOT_FOUND');
+    }
 
-  const interviewStep = await prisma.interviewStep.findFirst({
-    where: {
-      id: interviewStepId,
-      interviewFlowId: application.position.interviewFlowId,
-    },
-    select: { id: true },
-  });
+    const interviewStep = await tx.interviewStep.findFirst({
+      where: {
+        id: interviewStepId,
+        interviewFlowId: application.position.interviewFlowId,
+      },
+      select: { id: true },
+    });
 
-  if (!interviewStep) {
-    throw new Error('Interview step does not belong to position flow');
-  }
+    if (!interviewStep) {
+      throw new AppError('Interview step does not belong to position flow', 'VALIDATION');
+    }
 
-  await prisma.application.update({
-    where: { id: application.id },
-    data: { currentInterviewStep: interviewStepId },
+    await tx.application.update({
+      where: { id: application.id },
+      data: { currentInterviewStep: interviewStepId },
+    });
   });
 };

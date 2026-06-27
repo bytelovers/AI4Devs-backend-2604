@@ -294,23 +294,23 @@ describe('GET /positions/:id/candidates', () => {
 
     // Candidate 1: Jane Doe, scores [80, 90] => average 85
     expect(candidates[0].fullName).toBe('Jane Doe');
-    expect(candidates[0].current_interview_step).toBe('Technical Interview');
-    expect(candidates[0].average_score).toBe(85);
+    expect(candidates[0].currentInterviewStep).toBe('Technical Interview');
+    expect(candidates[0].averageScore).toBe(85);
 
     // Candidate 2: Bob Smith, scores [null, 90, null] => average 90
     expect(candidates[1].fullName).toBe('Bob Smith');
-    expect(candidates[1].current_interview_step).toBe('Technical Interview');
-    expect(candidates[1].average_score).toBe(90);
+    expect(candidates[1].currentInterviewStep).toBe('Technical Interview');
+    expect(candidates[1].averageScore).toBe(90);
 
     // Candidate 3: Alice Johnson, scores [null, null] => average null
     expect(candidates[2].fullName).toBe('Alice Johnson');
-    expect(candidates[2].current_interview_step).toBe('Technical Interview');
-    expect(candidates[2].average_score).toBeNull();
+    expect(candidates[2].currentInterviewStep).toBe('Technical Interview');
+    expect(candidates[2].averageScore).toBeNull();
 
     // Candidate 4: Charlie Brown, no interviews => average null
     expect(candidates[3].fullName).toBe('Charlie Brown');
-    expect(candidates[3].current_interview_step).toBe('Technical Interview');
-    expect(candidates[3].average_score).toBeNull();
+    expect(candidates[3].currentInterviewStep).toBe('Technical Interview');
+    expect(candidates[3].averageScore).toBeNull();
   });
 
   it('should return 400 if limit query is invalid', async () => {

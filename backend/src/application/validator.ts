@@ -3,7 +3,7 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const PHONE_REGEX = /^(6|7|9)\d{8}$/;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
-//Length validations according to the database schema
+// Length validations according to the database schema
 
 const validateName = (name: string) => {
   if (!name || name.length < 2 || name.length > 100 || !NAME_REGEX.test(name)) {
@@ -85,7 +85,7 @@ const validateCV = (cv: any) => {
 
 export const validateCandidateData = (data: any) => {
   if (data.id) {
-    // If id is provided, we are editing an existing candidate, so fields are not mandatory
+    // If id is provided, fields are not mandatory (editing existing candidate)
     return;
   }
 

@@ -137,6 +137,7 @@ model Application {
   interviewStep        InterviewStep  @relation(fields: [currentInterviewStep], references: [id])
   interviews           Interview[]
 
+  // WARNING: Verify no existing duplicates before migrating — this will fail on duplicate (positionId, candidateId) pairs
   @@unique([positionId, candidateId])
 }
 

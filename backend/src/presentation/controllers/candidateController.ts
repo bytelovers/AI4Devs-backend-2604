@@ -72,17 +72,8 @@ export const updateCandidateStage = async (req: Request, res: Response) => {
       interviewStepId: parsedInterviewStepId,
     });
   } catch (error: any) {
-    const msg = error instanceof Error ? error.message : String(error);
-    if (
-      msg === 'Candidate not found' ||
-      msg === 'Position not found' ||
-      msg === 'Application not found'
-    ) {
-      return res.status(404).json({ error: msg });
-    }
-    if (msg === 'Interview step does not belong to position flow') {
-      return res.status(400).json({ error: msg });
-    }
+    if (error.code === 'NOT_FOUND') return res.status(404).json({ error: error.message });
+    if (error.code === 'VALIDATION') return res.status(400).json({ error: error.message });
     console.error('Unhandled error in updateCandidateStage:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
   }

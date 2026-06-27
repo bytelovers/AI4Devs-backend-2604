@@ -1,6 +1,17 @@
 import { prisma } from '../../infrastructure/database/client';
 
-export const getCandidatesByPosition = async (positionId: number, take?: number, skip?: number) => {
+interface CandidateSummary {
+  id: number;
+  fullName: string;
+  currentInterviewStep: string;
+  averageScore: number | null;
+}
+
+export const getCandidatesByPosition = async (
+  positionId: number,
+  take?: number,
+  skip?: number
+): Promise<CandidateSummary[] | null> => {
   const positionExists = await prisma.position.findUnique({ where: { id: positionId }, select: { id: true } });
   if (!positionExists) {
     return null;
@@ -39,7 +50,7 @@ export const getCandidatesByPosition = async (positionId: number, take?: number,
   return applications.map((app) => {
     const candidate = app.candidate;
     const fullName = `${candidate.firstName} ${candidate.lastName}`;
-    const current_interview_step = app.interviewStep.name;
+    const currentInterviewStep = app.interviewStep.name;
 
     // Extract non-null interview scores
     const nonNullScores = app.interviews
@@ -49,7 +60,7 @@ export const getCandidatesByPosition = async (positionId: number, take?: number,
       );
 
     // Calculate arithmetic average score
-    const average_score =
+    const averageScore =
       nonNullScores.length > 0
         ? nonNullScores.reduce((sum, score) => sum + score, 0) /
           nonNullScores.length
@@ -58,8 +69,8 @@ export const getCandidatesByPosition = async (positionId: number, take?: number,
     return {
       id: candidate.id,
       fullName: fullName,
-      current_interview_step: current_interview_step,
-      average_score: average_score,
+      currentInterviewStep: currentInterviewStep,
+      averageScore: averageScore,
     };
   });
 };

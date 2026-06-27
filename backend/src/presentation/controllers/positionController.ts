@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { getCandidatesByPosition as getCandidatesByPositionService } from '../../application/services/positionService';
-import { isValidId } from '../utils/validation';
+import { isValidId, parsePositiveIntParam } from '../utils/validation';
 
 export const getCandidatesByPosition = async (req: Request, res: Response) => {
   try {
@@ -14,28 +14,22 @@ export const getCandidatesByPosition = async (req: Request, res: Response) => {
     let skip = 0;
 
     if (req.query.limit !== undefined) {
-      const limitStr = String(req.query.limit);
-      if (!/^\d+$/.test(limitStr)) {
+      const result = parsePositiveIntParam(req.query.limit);
+      if (!result.ok) {
         return res.status(400).json({ error: 'Invalid limit parameter' });
       }
-      const parsedLimit = parseInt(limitStr, 10);
-      if (parsedLimit <= 0 || parsedLimit > 2147483647) {
+      if (result.value > 100) {
         return res.status(400).json({ error: 'Invalid limit parameter' });
       }
-      const limitVal = Math.min(parsedLimit, 100);
-      take = limitVal;
+      take = result.value;
     }
 
     if (req.query.offset !== undefined) {
-      const offsetStr = String(req.query.offset);
-      if (!/^\d+$/.test(offsetStr)) {
+      const result = parsePositiveIntParam(req.query.offset);
+      if (!result.ok) {
         return res.status(400).json({ error: 'Invalid offset parameter' });
       }
-      const offsetVal = parseInt(offsetStr, 10);
-      if (offsetVal < 0 || offsetVal > 2147483647) {
-        return res.status(400).json({ error: 'Invalid offset parameter' });
-      }
-      skip = offsetVal;
+      skip = result.value;
     }
 
     const result = await getCandidatesByPositionService(positionId, take, skip);

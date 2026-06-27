@@ -10,7 +10,7 @@ This verification report covers the evaluation of the implementation of the `PUT
 | :--- | :--- | :--- | :--- |
 | Endpoint `PUT /candidates/:id/stage` | `spec.md` Section 2 | **Passed** | Mapped correctly in [candidateRoutes.ts](file:///Users/develop/Workspace/Courses/LidrCo/AI4Devs/AI4Devs-backend-2604/backend/src/routes/candidateRoutes.ts). |
 | Path parameter `:id` is valid integer | `spec.md` Section 2 | **Passed** | Controller parses and returns `400` if invalid. Tested by `should return 400 for invalid candidate ID in path`. |
-| Request body validation for `positionId` and `interviewStepId` | `spec.md` Section 2 | **Passed** | Controller checks existence and integers, returns `400`. Tested by `should return 400 for missing or invalid parameters in body`. |
+| Request body validation for `positionId` and `interviewStepId` | `spec.md` Section 2 | **Passed** | Controller validates format (returns `400` on malformed parameters), service validates existence (returns `404`). Tested by `should return 400 for missing or invalid parameters in body`. |
 | Candidate existence check | `spec.md` Requirement 4 | **Passed** | Service checks database and returns error. Tested by `should return 404 if candidate is not found`. |
 | Position existence check | `spec.md` Requirement 5 | **Passed** | Service checks database and returns error. Tested by `should return 404 if position is not found`. |
 | Candidate Application existence check | `spec.md` Requirement 6 | **Passed** | Service checks application linking candidate and position. Tested by `should return 404 if application is not found`. |

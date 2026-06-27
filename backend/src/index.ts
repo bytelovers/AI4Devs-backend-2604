@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import express from 'express';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
 import candidateRoutes from './routes/candidateRoutes';
 import positionRoutes from './routes/positionRoutes';
 import { uploadFile } from './application/services/fileUploadService';
@@ -11,10 +12,10 @@ dotenv.config();
 export const app = express();
 export default app;
 
-// Middleware para parsear JSON. Asegúrate de que esto esté antes de tus rutas.
+app.use(helmet());
 app.use(express.json());
 
-// Middleware de registro de solicitudes
+// Request logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();

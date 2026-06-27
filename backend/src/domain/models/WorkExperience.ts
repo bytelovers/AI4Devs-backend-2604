@@ -33,13 +33,13 @@ export class WorkExperience {
     }
 
     if (this.id) {
-      // Actualizar una experiencia laboral existente
+      // Update an existing work experience record
       return await prisma.workExperience.update({
         where: { id: this.id },
         data: workExperienceData,
       });
     } else {
-      // Crear una nueva experiencia laboral
+      // Create a new work experience record
       return await prisma.workExperience.create({
         data: workExperienceData,
       });

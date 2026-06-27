@@ -33,14 +33,14 @@ export class Candidate {
   async save() {
     const candidateData: any = {};
 
-    // Solo añadir al objeto candidateData los campos que no son undefined
+    // Only add non-undefined fields to candidateData
     if (this.firstName !== undefined) candidateData.firstName = this.firstName;
     if (this.lastName !== undefined) candidateData.lastName = this.lastName;
     if (this.email !== undefined) candidateData.email = this.email;
     if (this.phone !== undefined) candidateData.phone = this.phone;
     if (this.address !== undefined) candidateData.address = this.address;
 
-    // Añadir educations si hay alguna para añadir
+    // Add educations if any exist
     if (this.education.length > 0) {
       candidateData.educations = {
         create: this.education.map((edu) => ({
@@ -52,7 +52,7 @@ export class Candidate {
       };
     }
 
-    // Añadir workExperiences si hay alguna para añadir
+    // Add work experiences if any exist
     if (this.workExperience.length > 0) {
       candidateData.workExperiences = {
         create: this.workExperience.map((exp) => ({
@@ -65,17 +65,18 @@ export class Candidate {
       };
     }
 
-    // Añadir resumes si hay alguno para añadir
+    // Add resumes if any exist
     if (this.resumes.length > 0) {
       candidateData.resumes = {
         create: this.resumes.map((resume) => ({
           filePath: resume.filePath,
           fileType: resume.fileType,
+          uploadDate: new Date(),
         })),
       };
     }
 
-    // Añadir applications si hay alguna para añadir
+    // Add applications if any exist
     if (this.applications.length > 0) {
       candidateData.applications = {
         create: this.applications.map((app) => ({
@@ -89,30 +90,35 @@ export class Candidate {
     }
 
     if (this.id) {
-      // Actualizar un candidato existente
+      // Update an existing candidate — only include scalar fields, skip nested creates
+      const updateData: any = {};
+      if (this.firstName !== undefined) updateData.firstName = this.firstName;
+      if (this.lastName !== undefined) updateData.lastName = this.lastName;
+      if (this.email !== undefined) updateData.email = this.email;
+      if (this.phone !== undefined) updateData.phone = this.phone;
+      if (this.address !== undefined) updateData.address = this.address;
+
       try {
         return await prisma.candidate.update({
           where: { id: this.id },
-          data: candidateData,
+          data: updateData,
         });
       } catch (error: any) {
-        console.log(error);
+        console.error('Error updating candidate:', error);
         if (error instanceof Prisma.PrismaClientInitializationError) {
-          // Database connection error
           throw new Error(
-            'No se pudo conectar con la base de datos. Por favor, asegúrese de que el servidor de base de datos esté en ejecución.',
+            'Could not connect to the database. Please ensure the database server is running.',
           );
         } else if (error.code === 'P2025') {
-          // Record not found error
           throw new Error(
-            'No se pudo encontrar el registro del candidato con el ID proporcionado.',
+            'Could not find the candidate record with the provided ID.',
           );
         } else {
           throw error;
         }
       }
     } else {
-      // Crear un nuevo candidato
+      // Create a new candidate
       try {
         const result = await prisma.candidate.create({
           data: candidateData,
@@ -120,9 +126,8 @@ export class Candidate {
         return result;
       } catch (error: any) {
         if (error instanceof Prisma.PrismaClientInitializationError) {
-          // Database connection error
           throw new Error(
-            'No se pudo conectar con la base de datos. Por favor, asegúrese de que el servidor de base de datos esté en ejecución.',
+            'Could not connect to the database. Please ensure the database server is running.',
           );
         } else {
           throw error;

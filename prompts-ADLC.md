@@ -2,7 +2,7 @@
 
 > **Autor:** ADLC  
 > **Ejercicio:** Creación de endpoints para manipulación de candidatos en interfaz kanban  
-> **Herramienta:** Google Antigravity (Gemini/Claude) con metodología SDD (Spec-Driven Development)
+> **Herramienta:** OpenCode (CLI con skills SDD: sdd-init, sdd-propose, sdd-spec, sdd-design, sdd-tasks, sdd-apply, sdd-verify, sdd-archive + judgment-day) + Gemini/Claude como modelo
 
 ---
 
@@ -406,7 +406,123 @@ Para reproducir el ejercicio desde cero con un agente de IA:
 4. Al finalizar la implementación, ejecutar `/judgment-day` para la revisión adversarial
 5. Autorizar los fixes de los WARNINGs confirmados por ambos jueces
 
-> **Herramienta usada:** Google Antigravity CLI con:
+> **Herramienta usada:** OpenCode CLI con:
+> - Skills SDD (sdd-init, sdd-propose, sdd-spec, sdd-design, sdd-tasks, sdd-apply, sdd-verify, sdd-archive)
 > - Skill `judgment-day` (revisión adversarial con dos jueces en paralelo)
 > - MCP `codegraph` (exploración quirúrgica del codebase)
 > - Metodología SDD con artifact store `openspec` (specs en ficheros versionables)
+
+---
+
+### FASE 7 — Corrección post-PR (CodeRabbit + Language Domain Contract)
+
+> Tras la revisión de CodeRabbit en la PR #2 y una auditoría manual de Language Domain Contract, se identificaron 23 tips acumulados entre calidad de código, consistencia de idioma y seguridad. Este prompt único los resuelve todos.
+
+#### Prompt 7.1 — Fix integral post-PR
+
+```
+Corregí todos los siguientes issues en el backend. Trabajá sobre la rama feature/backend-ADLC y verficá que los tests sigan pasando al final.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔴 BLOQUE A: SEGURIDAD Y CORRECCIÓN FUNCIONAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A1 - Transacción en updateCandidateStage
+En backend/src/application/services/candidateService.ts, la función updateCandidateStage hace 4 lecturas independientes seguidas de una escritura. Envolvé todo el bloque (desde el findUnique de application hasta el update final) en una Prisma $transaction para evitar condiciones de carrera.
+
+A2 - Error handling frágil en candidateController
+En backend/src/presentation/controllers/candidateController.ts, el catch del updateCandidateStage matchea errores por mensaje de texto exacto ('Candidate not found', etc.). Reemplazalo por errores tipados: creá una clase AppError con una propiedad code (NOT_FOUND, VALIDATION, etc.) en un archivo compartido, usala en candidateService, y matcheá por code en el controller.
+
+A3 - Nested-create duplica child rows en Candidate.update
+En backend/src/domain/models/Candidate.ts, el método save() cuando this.id existe reusa candidateData con bloques create anidados para educations, workExperiences, resumes y applications. En un update, esto duplica las filas hijas cada vez. Cambiá la rama de update para omitir esos nested-create (o usar connect/upsert según corresponda).
+
+A4 - Falta uploadDate en nested create de resumes
+En backend/src/domain/models/Candidate.ts, el mapeo de candidateData.resumes.create no incluye uploadDate. El schema de Prisma lo requiere, así que cualquier creación de candidato con CV va a fallar. Agregá uploadDate: new Date() al mapeo.
+
+A5 - console.log(this) en Resume.create()
+En backend/src/domain/models/Resume.ts, eliminá la línea console.log(this); del método create(). Es un leftover de debugging.
+
+A6 - console.log(error) sin contexto en Candidate.ts
+En backend/src/domain/models/Candidate.ts, reemplazá console.log(error); por un throw estructurado con contexto del error.
+
+A7 - .catch(() => {}) silencia errores de cleanup en test
+En backend/tests/candidateStage.test.ts, el finally block tiene un .catch(() => {}) que traga errores de Prisma. Eliminá el catch o agregá un console.error como mínimo.
+
+A8 - Reset duplicado de application en try+finally del test
+En backend/tests/candidateStage.test.ts, el bloque try resetea currentInterviewStep a step1Id y el finally hace lo mismo. Eliminá el reset del try, dejá solo el del finally.
+
+A9 - step3 tipado como any en test
+En backend/tests/candidateStage.test.ts, cambiá let step3: any a let step3: InterviewStep | undefined e importá InterviewStep desde @prisma/client.
+
+A10 - Helmet para seguridad de headers
+En backend/src/index.ts, agregá app.use(helmet()) al inicio de la cadena de middleware. Importá helmet del paquete helmet. Si no está instalado, agregalo.
+
+A11 - PrismaClient sin guard para hot-reload
+En backend/src/infrastructure/database/client.ts, cacheá el PrismaClient en globalThis para evitar múltiples instancias en recarga en dev, y registrá un process.on('beforeExit', () => prisma.$disconnect()) para shutdown limpio.
+
+A12 - Double-wrapping de error en candidateService
+En backend/src/application/services/candidateService.ts, el catch de addCandidate envuelve el error de validateCandidateData en un new Error(error), perdiendo el stack original. Cambialo a throw error directamente.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🟡 BLOQUE B: CALIDAD DE CÓDIGO Y MANTENIBILIDAD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+B1 - Extraer helper parsePositiveIntParam
+En backend/src/presentation/controllers/positionController.ts, la validación de limit y offset está duplicada (regex + parse + bounds check). Extraé un helper parsePositiveIntParam(val, max?) en backend/src/presentation/utils/validation.ts y usalo en ambas ramas.
+
+B2 - Truncado silencioso de limit > 100
+En backend/src/presentation/controllers/positionController.ts, cuando limit supera 100 se trunca con Math.min sin avisar al cliente. Rechazalo con 400 y un mensaje claro, o como mínimo documentalo en el spec.
+
+B3 - Falta tipo de retorno explícito en positionService
+En backend/src/application/services/positionService.ts, definí una interfaz CandidateSummary y usala como tipo de retorno explícito de getCandidatesByPosition.
+
+B4 - current_interview_step a camelCase
+En backend/src/application/services/positionService.ts, cambiá la clave current_interview_step a currentInterviewStep en el objeto de respuesta, para mantener consistencia con camelCase en el resto de la API.
+
+B5 - Comentarios en español a inglés en todo el backend
+PASÁ TODOS los comentarios inline que están en español a inglés en TODOS los archivos .ts del backend. Incluye: domain/models/*.ts, application/services/*.ts, presentation/controllers/*.ts, presentation/utils/*.ts, infrastructure/database/client.ts, index.ts, routes/*.ts. Ejemplos de cambios:
+  // Solo añadir al objeto candidateData los campos que no son undefined
+  → // Only add non-undefined fields to candidateData
+  // Añadir educations si hay alguna para añadir
+  → // Add educations if any exist
+  // Verificar si el archivo fue rechazado por el filtro de archivos
+  → // Check if the file was rejected by the file filter
+
+B6 - Mensajes de error en español a inglés en domain models
+Pasá TODOS los mensajes de error en español a inglés en domain/models/*.ts. Ejemplos:
+  'No se pudo conectar con la base de datos...' → 'Database connection error...'
+  'No se pudo encontrar el registro del candidato...' → 'Candidate record not found...'
+  'No se permite la actualización de un currículum...' → 'Resume updates are not allowed...'
+
+B7 - Tipar step3 correctamente en test de candidateStage
+(ya cubierto en A9 - mismo cambio)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🟢 BLOQUE C: DOCUMENTACIÓN Y CONFIGURACIÓN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+C1 - Rutas absolutas en apply-progress.md
+En openspec/changes/archive/2026-06-27-update-candidate-stage/apply-progress.md, reemplazá las rutas absolutas file:///Users/develop/... por rutas relativas al repositorio (backend/src/routes/candidateRoutes.ts, etc.).
+
+C2 - Descripción incorrecta de tests en apply-progress.md
+En el mismo archivo, donde dice "unit tests" cambialo a "integration tests".
+
+C3 - Verify-report desactualizado en position-candidates
+En openspec/changes/archive/2026-06-27-get-position-candidates/verify-report.md, actualizá la entrada que dice "Handled with parseInt and isNaN check" para que refleje que ahora se usa isValidId() con validación más estricta (regex /^\d+$/, rango 1-2147483647).
+
+C4 - Verify-report: separar responsabilidades en candidate-stage
+En openspec/changes/archive/2026-06-27-update-candidate-stage/verify-report.md, actualizá la entrada sobre validación del body para que distinga que el controller valida formato (400) y el service valida existencia (404).
+
+C5 - Google Antigravity → Gemini/Claude
+En prompts-ADLC.md (este mismo archivo), cambiá "Google Antigravity (Gemini/Claude)" por la herramienta real que se usó.
+
+C6 - Unique constraint: documentar migración segura
+En backend/prisma/schema.prisma, la línea @@unique([positionId, candidateId]) puede fallar si hay duplicados en DB. Agregá un comentario que advierta verificar/limpiar datos antes de migrar.
+
+C7 - Config duplicada de pnpm
+En frontend/package.json, eliminá pnpm.onlyBuiltDependencies si ya existe allowBuilds en frontend/pnpm-workspace.yaml. Estandarizá en un solo lugar.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IMPORTANTE: Al terminar cada bloque, ejecutá npm run test (o el comando de tests del backend) para verificar que no se rompa nada. Si un test falla, corregílo antes de pasar al siguiente bloque.
+```
