@@ -1,8 +1,6 @@
 import request from 'supertest';
 import app from '../src/index';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../src/infrastructure/database/client';
 
 describe('PUT /candidates/:id/stage', () => {
   let testCompanyId: number;
@@ -113,27 +111,33 @@ describe('PUT /candidates/:id/stage', () => {
 
   afterAll(async () => {
     // Clean up
-    await prisma.application.deleteMany({
-      where: { id: applicationId },
-    });
-    await prisma.candidate.deleteMany({
-      where: { id: candidateId },
-    });
+    if (applicationId) {
+      await prisma.application.deleteMany({
+        where: { id: applicationId },
+      });
+    }
+    if (candidateId) {
+      await prisma.candidate.deleteMany({
+        where: { id: candidateId },
+      });
+    }
     await prisma.position.deleteMany({
-      where: { id: { in: [position1Id, position2Id] } },
+      where: { id: { in: [position1Id, position2Id].filter(Boolean) } },
     });
     await prisma.interviewStep.deleteMany({
-      where: { id: { in: [step1Id, step2Id] } },
+      where: { id: { in: [step1Id, step2Id].filter(Boolean) } },
     });
     await prisma.interviewFlow.deleteMany({
-      where: { id: { in: [flow1Id, flow2Id] } },
+      where: { id: { in: [flow1Id, flow2Id].filter(Boolean) } },
     });
     await prisma.interviewType.deleteMany({
       where: { id: testTypeId },
     });
-    await prisma.company.delete({
-      where: { id: testCompanyId },
-    });
+    if (testCompanyId) {
+      await prisma.company.deleteMany({
+        where: { id: testCompanyId },
+      });
+    }
 
     await prisma.$disconnect();
   });
@@ -197,40 +201,49 @@ describe('PUT /candidates/:id/stage', () => {
   });
 
   it('should return 200 and successfully update the candidate stage', async () => {
-    // To do happy path, let's create a new step3 belonging to Flow 1 and update to it
-    const step3 = await prisma.interviewStep.create({
-      data: {
-        name: 'Step 3 (Flow 1)',
-        orderIndex: 2,
-        interviewFlowId: flow1Id,
-        interviewTypeId: testTypeId,
-      },
-    });
+    let step3: any;
+    try {
+      // To do happy path, let's create a new step3 belonging to Flow 1 and update to it
+      step3 = await prisma.interviewStep.create({
+        data: {
+          name: 'Step 3 (Flow 1)',
+          orderIndex: 2,
+          interviewFlowId: flow1Id,
+          interviewTypeId: testTypeId,
+        },
+      });
 
-    const res = await request(app)
-      .put(`/candidates/${candidateId}/stage`)
-      .send({ positionId: position1Id, interviewStepId: step3.id });
+      const res = await request(app)
+        .put(`/candidates/${candidateId}/stage`)
+        .send({ positionId: position1Id, interviewStepId: step3.id });
 
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({
-      message: 'Stage updated successfully',
-      candidateId: candidateId,
-      interviewStepId: step3.id,
-    });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        message: 'Stage updated successfully',
+        candidateId: candidateId,
+        interviewStepId: step3.id,
+      });
 
-    // Verify in db
-    const appRecord = await prisma.application.findUnique({
-      where: { id: applicationId },
-    });
-    expect(appRecord?.currentInterviewStep).toBe(step3.id);
+      // Verify in db
+      const appRecord = await prisma.application.findUnique({
+        where: { id: applicationId },
+      });
+      expect(appRecord?.currentInterviewStep).toBe(step3.id);
 
-    // Reset application back to step1Id to avoid foreign key violation when step3 is deleted
-    await prisma.application.update({
-      where: { id: applicationId },
-      data: { currentInterviewStep: step1Id },
-    });
-
-    // Clean up step3
-    await prisma.interviewStep.delete({ where: { id: step3.id } });
+      // Reset application back to step1Id to avoid foreign key violation when step3 is deleted
+      await prisma.application.update({
+        where: { id: applicationId },
+        data: { currentInterviewStep: step1Id },
+      });
+    } finally {
+      if (step3) {
+        await prisma.application.update({
+          where: { id: applicationId },
+          data: { currentInterviewStep: step1Id },
+        }).catch(() => {});
+        // Clean up step3
+        await prisma.interviewStep.delete({ where: { id: step3.id } });
+      }
+    }
   });
 });

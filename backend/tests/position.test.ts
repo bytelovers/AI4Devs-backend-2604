@@ -1,8 +1,6 @@
 import request from 'supertest';
 import app from '../src/index';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../src/infrastructure/database/client';
 
 describe('GET /positions/:id/candidates', () => {
   let testCompanyId: number;
@@ -252,13 +250,13 @@ describe('GET /positions/:id/candidates', () => {
     });
     await prisma.candidate.deleteMany({ where: { id: { in: candidateIds } } });
     await prisma.position.deleteMany({
-      where: { id: { in: [activePositionId, emptyPositionId] } },
+      where: { id: { in: [activePositionId, emptyPositionId].filter(Boolean) } },
     });
-    await prisma.interviewStep.delete({ where: { id: testStepId } });
-    await prisma.interviewFlow.delete({ where: { id: testFlowId } });
-    await prisma.interviewType.delete({ where: { id: testTypeId } });
-    await prisma.employee.delete({ where: { id: testEmployeeId } });
-    await prisma.company.delete({ where: { id: testCompanyId } });
+    if (testStepId) await prisma.interviewStep.deleteMany({ where: { id: testStepId } });
+    if (testFlowId) await prisma.interviewFlow.deleteMany({ where: { id: testFlowId } });
+    if (testTypeId) await prisma.interviewType.deleteMany({ where: { id: testTypeId } });
+    if (testEmployeeId) await prisma.employee.deleteMany({ where: { id: testEmployeeId } });
+    if (testCompanyId) await prisma.company.deleteMany({ where: { id: testCompanyId } });
 
     await prisma.$disconnect();
   });
@@ -313,5 +311,61 @@ describe('GET /positions/:id/candidates', () => {
     expect(candidates[3].fullName).toBe('Charlie Brown');
     expect(candidates[3].current_interview_step).toBe('Technical Interview');
     expect(candidates[3].average_score).toBeNull();
+  });
+
+  it('should return 400 if limit query is invalid', async () => {
+    const res1 = await request(app).get(`/positions/${activePositionId}/candidates?limit=abc`);
+    expect(res1.status).toBe(400);
+    expect(res1.body).toEqual({ error: 'Invalid limit parameter' });
+
+    const res2 = await request(app).get(`/positions/${activePositionId}/candidates?limit=-1`);
+    expect(res2.status).toBe(400);
+    expect(res2.body).toEqual({ error: 'Invalid limit parameter' });
+
+    const res3 = await request(app).get(`/positions/${activePositionId}/candidates?limit=0`);
+    expect(res3.status).toBe(400);
+    expect(res3.body).toEqual({ error: 'Invalid limit parameter' });
+
+    const res4 = await request(app).get(`/positions/${activePositionId}/candidates?limit=2147483648`);
+    expect(res4.status).toBe(400);
+    expect(res4.body).toEqual({ error: 'Invalid limit parameter' });
+  });
+
+  it('should return 400 if offset query is invalid', async () => {
+    const res1 = await request(app).get(`/positions/${activePositionId}/candidates?offset=abc`);
+    expect(res1.status).toBe(400);
+    expect(res1.body).toEqual({ error: 'Invalid offset parameter' });
+
+    const res2 = await request(app).get(`/positions/${activePositionId}/candidates?offset=-5`);
+    expect(res2.status).toBe(400);
+    expect(res2.body).toEqual({ error: 'Invalid offset parameter' });
+
+    const res3 = await request(app).get(`/positions/${activePositionId}/candidates?offset=2147483648`);
+    expect(res3.status).toBe(400);
+    expect(res3.body).toEqual({ error: 'Invalid offset parameter' });
+  });
+
+  it('should return paginated candidates when limit and/or offset are specified', async () => {
+    // limit 2
+    const resLimit = await request(app).get(`/positions/${activePositionId}/candidates?limit=2`);
+    expect(resLimit.status).toBe(200);
+    expect(resLimit.body.length).toBe(2);
+
+    // limit 2, offset 2
+    const resLimitOffset = await request(app).get(`/positions/${activePositionId}/candidates?limit=2&offset=2`);
+    expect(resLimitOffset.status).toBe(200);
+    expect(resLimitOffset.body.length).toBe(2);
+
+    // Make sure they are different candidates (representing correct pagination)
+    const allCandidates = await request(app).get(`/positions/${activePositionId}/candidates`);
+    const sortedAll = allCandidates.body.sort((a: any, b: any) => a.id - b.id);
+    const sortedLimit = resLimit.body.sort((a: any, b: any) => a.id - b.id);
+    const sortedLimitOffset = resLimitOffset.body.sort((a: any, b: any) => a.id - b.id);
+
+    // Because prisma query is not ordered by ID by default unless we did so (it returns all match database order),
+    // let's verify limit/offset correspond to the original array slices
+    const originalBodies = allCandidates.body;
+    expect(resLimit.body).toEqual(originalBodies.slice(0, 2));
+    expect(resLimitOffset.body).toEqual(originalBodies.slice(2, 4));
   });
 });
